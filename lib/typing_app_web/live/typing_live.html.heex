@@ -1,0 +1,483 @@
+<div class="game-container" phx-hook=".SoundSystem" id="sound-system">
+  <!-- Sound Controls -->
+  <div class="sound-controls">
+    <button class="sound-btn" phx-click="toggle_sound">
+      <%= if @sound_enabled, do: "🔊", else: "🔇" %>
+    </button>
+  </div>
+
+  <div class="header">
+    <h1 class="title">🎮 TypeMaster Kids 🎮</h1>
+  </div>
+
+  <%= if @game_state == :waiting do %>
+    <div class="level-info">
+      <div>
+        <strong>Level: <%= @current_level %></strong>
+        <div><%= level_description(@current_level) %></div>
+      </div>
+      <div>
+        <strong>Score: <%= @score %></strong>
+        <div>Total: <%= @progress.total_score %></div>
+      </div>
+      <div>
+        <strong>Best WPM: <%= Float.round(@progress.best_wpm, 1) %></strong>
+        <div>Keep improving!</div>
+      </div>
+    </div>
+
+    <div class="text-display">
+      Ready to start level <%= @current_level %>? Click the button below!
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" phx-click="start_game">🚀 Start Level <%= @current_level %></button>
+      <button class="btn btn-warning" phx-click="reset_game">🔄 Reset Progress</button>
+    </div>
+
+  <% else %>
+    <!-- Game playing interface with all the existing content -->
+    <div class="level-info">
+      <div>
+        <strong>Level: <%= @current_level %></strong>
+        <div><%= level_description(@current_level) %></div>
+      </div>
+      <div>
+        <strong>Score: <%= @score %></strong>
+        <div>Keep typing!</div>
+      </div>
+      <div>
+        <strong>Lives: <%= String.duplicate("❤️", @lives) %></strong>
+        <div><%= lives_message(@lives) %></div>
+      </div>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress-fill" style={"width: #{progress_percentage(@current_index, @current_text)}%"}></div>
+    </div>
+
+    <div class="text-display">
+      <%= for {char, index} <- String.graphemes(@current_text) |> Enum.with_index() do %>
+        <span class={"char #{char_class(index, @current_index, @typed_text, @current_text)}"}>
+          <%= if char == " ", do: raw("&nbsp;"), else: char %>
+        </span>
+      <% end %>
+    </div>
+  <% end %>
+
+  <!-- Hidden data for JavaScript sound system -->
+  <div id="sound-data"
+       data-sound-enabled={@sound_enabled}
+       data-last-sound-event={@last_sound_event}
+       style="display: none;">
+  </div>
+
+  <%= if @game_state == :playing do %>
+      <div class="input-area">
+        <input
+          type="text"
+          class="typing-input"
+          value={@typed_text}
+          phx-keyup="key_typed"
+          phx-debounce="50"
+          placeholder="Start typing here..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+    <% end %>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value"><%= Float.round(@wpm, 1) %></div>
+        <div class="stat-label">Words/Min</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value"><%= Float.round(@accuracy, 1) %>%</div>
+        <div class="stat-label">Accuracy</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value"><%= @time_left %></div>
+        <div class="stat-label">Time Left</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value"><%= @streak %></div>
+        <div class="stat-label">Streak</div>
+      </div>
+    </div>
+
+    <%= if @game_state == :level_complete do %>
+      <div class="game-complete">
+        <h2>🎉 Level <%= @current_level %> Complete! 🎉</h2>
+        <p class="emoji">🌟⭐🌟⭐🌟</p>
+        <p>Final Score: <%= @score %></p>
+        <p>WPM: <%= Float.round(@wpm, 1) %> | Accuracy: <%= Float.round(@accuracy, 1) %>%</p>
+
+        <div class="controls" style="margin-top: 20px;">
+          <%= if @current_level < 5 do %>
+            <button class="btn btn-primary" phx-click="next_level">⬆️ Next Level</button>
+          <% else %>
+            <div>🏆 Congratulations! You've mastered all levels! 🏆</div>
+            <button class="btn btn-primary" phx-click="reset_game">🔄 Play Again</button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%= if @game_state == :game_over do %>
+      <div class="game-over">
+        <h2>💪 Keep Practicing! 💪</h2>
+        <p>Don't worry - every expert was once a beginner!</p>
+        <button class="btn btn-primary" phx-click="start_game">🔄 Try Again</button>
+        <button class="btn btn-secondary" phx-click="reset_game">🏠 Back to Level 1</button>
+      </div>
+    <% end %>
+</div>
+
+<script :type={Phoenix.LiveView.ColocatedHook} name=".SoundSystem">
+    export default {
+      mounted() {
+        this.initSoundSystem()
+        this.lastSoundEvent = null
+        this.soundEnabled = true
+
+        // Listen for updates from LiveView
+        this.handleEvent = (event, payload) => {
+          // Handle any custom events if needed
+        }
+      },
+
+      updated() {
+        // Check for sound events when component updates
+        const soundData = document.getElementById('sound-data')
+        if (soundData) {
+          const soundEnabled = soundData.dataset.hasOwnProperty('soundEnabled')
+          const lastSoundEvent = soundData.dataset.lastSoundEvent
+
+          this.soundEnabled = soundEnabled
+
+          // Play sound if there's a new event and sound is enabled
+          console.log('Sound enabled:', this.soundEnabled)
+          console.log('this Last sound event:', this.lastSoundEvent)
+          console.log('Last sound event:', lastSoundEvent)
+
+          if (lastSoundEvent && lastSoundEvent !== this.lastSoundEvent && this.soundEnabled) {
+            console.log('Playing sound', lastSoundEvent)
+            this.playSound(lastSoundEvent)
+            this.lastSoundEvent = lastSoundEvent
+          }
+        }
+      },
+
+      initSoundSystem() {
+        try {
+          console.log('Web Audio API supported')
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+        } catch (e) {
+          console.log('Web Audio API not supported')
+        }
+      },
+
+      resumeContext() {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          this.audioContext.resume()
+        }
+      },
+
+      playSound(type) {
+        if (!this.soundEnabled || !this.audioContext) return
+
+        this.resumeContext()
+
+        const oscillator = this.audioContext.createOscillator()
+        const gainNode = this.audioContext.createGain()
+
+        oscillator.connect(gainNode)
+        gainNode.connect(this.audioContext.destination)
+
+        // Different sounds for different events
+        switch(type) {
+          case 'correct':
+            oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime)
+            oscillator.frequency.exponentialRampToValueAtTime(1000, this.audioContext.currentTime + 0.1)
+            gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime)
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1)
+            oscillator.start()
+            oscillator.stop(this.audioContext.currentTime + 0.1)
+            break
+
+          case 'incorrect':
+            oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime)
+            oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.2)
+            gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime)
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2)
+            oscillator.start()
+            oscillator.stop(this.audioContext.currentTime + 0.2)
+            break
+
+          case 'complete':
+            // Play a cheerful completion sound
+            const notes = [523, 659, 784, 1047] // C, E, G, C (major chord)
+            notes.forEach((freq, index) => {
+              const osc = this.audioContext.createOscillator()
+              const gain = this.audioContext.createGain()
+
+              osc.connect(gain)
+              gain.connect(this.audioContext.destination)
+
+              osc.frequency.setValueAtTime(freq, this.audioContext.currentTime + index * 0.1)
+              gain.gain.setValueAtTime(0.1, this.audioContext.currentTime + index * 0.1)
+              gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + index * 0.1 + 0.3)
+
+              osc.start(this.audioContext.currentTime + index * 0.1)
+              osc.stop(this.audioContext.currentTime + index * 0.1 + 0.3)
+            })
+            break
+
+          case 'levelup':
+            // Ascending scale sound
+            const scale = [523, 587, 659, 698, 784, 880, 988, 1047]
+            scale.forEach((freq, index) => {
+              const osc = this.audioContext.createOscillator()
+              const gain = this.audioContext.createGain()
+
+              osc.connect(gain)
+              gain.connect(this.audioContext.destination)
+
+              osc.frequency.setValueAtTime(freq, this.audioContext.currentTime + index * 0.08)
+              gain.gain.setValueAtTime(0.08, this.audioContext.currentTime + index * 0.08)
+              gain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + index * 0.08 + 0.15)
+
+              osc.start(this.audioContext.currentTime + index * 0.08)
+              osc.stop(this.audioContext.currentTime + index * 0.08 + 0.15)
+            })
+            break
+        }
+      }
+    }
+</script>
+<!-- CSS Styles -->
+<style>
+  .game-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    position: relative;
+  }
+
+  .sound-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: white;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+  }
+
+  .sound-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px;
+    transition: transform 0.2s ease;
+  }
+
+  .sound-btn:hover {
+    transform: scale(1.1);
+  }
+
+  .title {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #4a5568;
+    margin-bottom: 30px;
+  }
+
+  .level-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: linear-gradient(90deg, #ff9a56 0%, #ff6b95 100%);
+    border-radius: 15px;
+    color: white;
+  }
+
+  .text-display {
+    font-size: 1.5rem;
+    line-height: 2;
+    padding: 25px;
+    border: 3px dashed #e2e8f0;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    background: #f8fafc;
+    text-align: center;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .char {
+    transition: all 0.2s ease;
+    padding: 2px;
+    border-radius: 3px;
+  }
+
+  .char.correct {
+    background: #48bb78;
+    color: white;
+    animation: correctBounce 0.3s ease;
+  }
+
+  .char.incorrect {
+    background: #f56565;
+    color: white;
+    animation: incorrectShake 0.3s ease;
+  }
+
+  .char.current {
+    background: #4299e1;
+    color: white;
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes correctBounce {
+    0%, 20%, 60%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    80% { transform: translateY(-5px); }
+  }
+
+  @keyframes incorrectShake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+
+  .typing-input {
+    font-size: 1.2rem;
+    padding: 15px;
+    border: 3px solid #cbd5e0;
+    border-radius: 10px;
+    width: 100%;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .typing-input:focus {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+  }
+
+  .stat {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+    transition: width 0.3s ease;
+  }
+
+  .controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+  }
+
+  .btn-warning {
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+
+  .game-complete {
+    text-align: center;
+    padding: 30px;
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    color: white;
+    border-radius: 15px;
+    margin: 20px 0;
+    animation: celebration 0.5s ease;
+  }
+
+  .game-over {
+    text-align: center;
+    padding: 30px;
+    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+    color: white;
+    border-radius: 15px;
+    margin: 20px 0;
+  }
+
+  .emoji {
+    font-size: 2rem;
+    margin: 10px 0;
+  }
+
+  @keyframes celebration {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
