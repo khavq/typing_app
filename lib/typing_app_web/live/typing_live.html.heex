@@ -129,7 +129,7 @@
             <button class="btn btn-primary" phx-click="next_level">⬆️ Next Level</button>
           <% else %>
             <div>🏆 Congratulations! You've mastered all levels! 🏆</div>
-            <button class="btn btn-primary" phx-click="reset_game">🔄 Play Again</button>
+            <button class="btn btn-primary" phx-click="reset_game" autofocus phx-hook=".AutoFocusButton" id="try-again-button" data-key-action="reset_game">🔄 Play Again</button>
           <% end %>
         </div>
       </div>

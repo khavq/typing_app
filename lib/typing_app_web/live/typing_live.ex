@@ -57,7 +57,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:typed_text, "")
       |> assign(:current_index, 0)
       |> assign(:start_time, System.monotonic_time(:second))
-      |> assign(:time_left, 60)
+      |> assign(:time_left, calculate_time_left(socket.assigns.current_level, current_text))
       |> assign(:timer_ref, timer_ref)
       |> assign(:lives, 5)
 
@@ -137,6 +137,10 @@ defmodule TypingAppWeb.TypingLive do
 
       {:noreply, socket}
     end
+  end
+
+  defp calculate_time_left(level, text) do
+    Float.round(String.length(text) / level * 10)
   end
 
   defp handle_typing_input(socket, typed_text) do
