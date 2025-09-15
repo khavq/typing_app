@@ -30,8 +30,9 @@
       Ready to start level <%= @current_level %>? Click the button below!
     </div>
 
+
     <div class="controls">
-      <button class="btn btn-primary" phx-click="start_game">🚀 Start Level <%= @current_level %></button>
+      <button class="btn btn-primary" phx-click="start_game" phx-key-action="start_game" phx-hook=".AutoFocusButton" autofocus id="start-button">🚀 Start Level <%= @current_level %></button>
       <button class="btn btn-warning" phx-click="reset_game">🔄 Reset Progress</button>
     </div>
 
@@ -47,7 +48,7 @@
         <div>Keep typing!</div>
       </div>
       <div>
-        <strong>Lives: <%= String.duplicate("❤️", @lives) %></strong>
+        <strong>Lives: <%= String.duplicate("💚️", @lives) %></strong>
         <div><%= lives_message(@lives) %></div>
       </div>
     </div>
@@ -57,11 +58,18 @@
     </div>
 
     <div class="text-display">
-      <%= for {char, index} <- String.graphemes(@current_text) |> Enum.with_index() do %>
-        <span class={"char #{char_class(index, @current_index, @typed_text, @current_text)}"}>
-          <%= if char == " ", do: raw("&nbsp;"), else: char %>
-        </span>
-      <% end %>
+      <div class="typing-progress">
+        <div class="progress-percentage">
+          <%= progress_percentage(@current_index, @current_text) %>% Complete
+        </div>
+      </div>
+      <div class="text-content">
+        <%= for {char, index} <- String.graphemes(@current_text) |> Enum.with_index() do %>
+          <span class={"char #{char_class(index, @current_index, @typed_text, @current_text)}"}>
+            <%= if char == " ", do: raw("&nbsp;"), else: char %>
+          </span>
+        <% end %>
+      </div>
     </div>
   <% end %>
 
@@ -83,6 +91,9 @@
           placeholder="Start typing here..."
           autocomplete="off"
           spellcheck="false"
+          autofocus
+          phx-hook=".AutoFocus"
+          id="typing-input"
         />
       </div>
     <% end %>
@@ -128,10 +139,45 @@
       <div class="game-over">
         <h2>💪 Keep Practicing! 💪</h2>
         <p>Don't worry - every expert was once a beginner!</p>
-        <button class="btn btn-primary" phx-click="start_game">🔄 Try Again</button>
+        <button
+          class="btn btn-primary"
+          phx-click="start_game"
+          autofocus
+          phx-hook=".AutoFocusButton"
+          id="try-again-button"
+          data-key-action="start_game"
+        >🔄 Try Again</button>
         <button class="btn btn-secondary" phx-click="reset_game">🏠 Back to Level 1</button>
+        <p class="help-text">Press <kbd>Enter</kbd> to try again</p>
       </div>
     <% end %>
+
+    <!-- Text Source Selector - Always visible at the bottom -->
+    <div class="text-source-selector fixed-bottom">
+      <div class="source-label">Select Text Source:</div>
+      <div class="source-buttons">
+        <%= for {source_key, source_name} <- @text_sources do %>
+          <button
+            type="button"
+            phx-click="select_text_source"
+            phx-value-source={source_key}
+            class={"source-btn #{if @selected_source == source_key, do: 'selected'}"}
+          >
+            <%= source_name %>
+          </button>
+        <% end %>
+      </div>
+      <div class="source-info">
+        <%= case @selected_source do %>
+          <% :zenquotes -> %>
+            Using <a href="https://zenquotes.io/" target="_blank">ZenQuotes API</a> - inspirational quotes
+          <% :dummyjson -> %>
+            Using <a href="https://dummyjson.com/docs/quotes" target="_blank">DummyJSON API</a> - sample quotes
+          <% _ -> %>
+            Using built-in text samples for each level
+        <% end %>
+      </div>
+    </div>
 </div>
 
 <script :type={Phoenix.LiveView.ColocatedHook} name=".SoundSystem">
@@ -256,6 +302,62 @@
       }
     }
 </script>
+
+<!-- Auto-focus Hooks -->
+<script :type={Phoenix.LiveView.ColocatedHook} name=".AutoFocus">
+  export default {
+    mounted() {
+      // Focus the input element when it's mounted
+      this.el.focus()
+
+      // Re-focus when element receives updates
+      this.handleEvent("phx:update", () => {
+        // Use setTimeout to ensure DOM is fully updated
+        setTimeout(() => this.el.focus(), 10)
+      })
+    },
+
+    updated() {
+      // Re-focus the input when it's updated
+      this.el.focus()
+    }
+  }
+</script>
+
+<script :type={Phoenix.LiveView.ColocatedHook} name=".AutoFocusButton">
+  export default {
+    mounted() {
+      // Focus the button when it's mounted
+      this.el.focus()
+
+      // Add event listener for the Enter key
+      this.handleKeyPress = (event) => {
+        if (event.key === 'Enter') {
+          // Get the event name from data attribute
+          const action = this.el.dataset.keyAction
+          if (action) {
+            this.pushEvent(action, {})
+            event.preventDefault()
+          }
+        }
+      }
+
+      // Add the event listener to the document
+      document.addEventListener('keydown', this.handleKeyPress)
+    },
+
+    updated() {
+      // Re-focus the button when it's updated
+      this.el.focus()
+    },
+
+    destroyed() {
+      // Clean up the event listener when the component is destroyed
+      document.removeEventListener('keydown', this.handleKeyPress)
+    }
+  }
+</script>
+
 <!-- CSS Styles -->
 <style>
   .game-container {
@@ -310,7 +412,7 @@
   .text-display {
     font-size: 1.5rem;
     line-height: 2;
-    padding: 25px;
+    padding: 20px;
     border: 3px dashed #e2e8f0;
     border-radius: 15px;
     margin-bottom: 20px;
@@ -318,33 +420,87 @@
     text-align: center;
     min-height: 100px;
     display: flex;
+    flex-direction: column;
+  }
+
+  .typing-progress {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+  }
+
+  .progress-percentage {
+    font-size: 1rem;
+    color: #4a5568;
+    background: #e2e8f0;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-weight: bold;
+  }
+
+  .text-content {
+    display: flex;
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
+    padding: 10px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
   }
 
   .char {
     transition: all 0.2s ease;
-    padding: 2px;
+    padding: 2px 1px;
     border-radius: 3px;
+    font-weight: normal;
+    color: #a0aec0; /* Lighter color for untyped text */
+    opacity: 0.7;
   }
 
   .char.correct {
     background: #48bb78;
     color: white;
+    font-weight: 700;
+    opacity: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     animation: correctBounce 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transform: scale(1.05);
   }
 
   .char.incorrect {
     background: #f56565;
     color: white;
+    font-weight: 700;
+    opacity: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     animation: incorrectShake 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
 
   .char.current {
     background: #4299e1;
     color: white;
+    font-weight: 700;
+    opacity: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     animation: pulse 1s infinite;
+    box-shadow: 0 0 8px rgba(66, 153, 225, 0.6);
+    position: relative;
+  }
+
+  /* Add an underline cursor effect to the current character */
+  .char.current::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: white;
+    animation: blink 1s infinite;
   }
 
   @keyframes correctBounce {
@@ -362,6 +518,11 @@
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.1); }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 
   .typing-input {
@@ -471,6 +632,26 @@
     margin: 20px 0;
   }
 
+  .help-text {
+    margin-top: 15px;
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+
+  kbd {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+    color: white;
+    display: inline-block;
+    font-size: 0.8rem;
+    font-family: monospace;
+    line-height: 1;
+    padding: 2px 6px;
+    margin: 0 2px;
+  }
+
   .emoji {
     font-size: 2rem;
     margin: 10px 0;
@@ -479,5 +660,85 @@
   @keyframes celebration {
     0% { transform: scale(0.8); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
+  }
+  .text-source-selector {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    padding: 15px;
+    border-radius: 15px;
+    color: white;
+    margin-top: 30px;
+    text-align: center;
+    position: relative;
+  }
+
+  .text-source-selector.fixed-bottom {
+    border-top: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px 15px 0 0;
+    margin-top: 50px; /* Increased spacing from above content */
+    padding-top: 15px;
+    padding-bottom: 18px;
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  .source-label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+
+  /* Add more bottom spacing to elements above the selector */
+  .stats, .game-complete, .game-over {
+    margin-bottom: 30px;
+  }
+
+  .source-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .source-btn {
+    padding: 8px 15px;
+    border-radius: 25px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .source-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .source-btn.selected {
+    background: white;
+    color: #3182ce;
+    border-color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .source-info {
+    font-size: 0.9rem;
+    margin-top: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .source-info a {
+    color: #e2e8f0;
+    text-decoration: underline;
+    transition: color 0.2s ease;
+  }
+
+  .source-info a:hover {
+    color: white;
   }
 </style>

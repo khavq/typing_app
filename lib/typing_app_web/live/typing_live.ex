@@ -4,9 +4,16 @@ defmodule TypingAppWeb.TypingLive do
   alias TypingApp.Games
   alias TypingApp.Accounts
 
-  def mount(params, session, socket) do
+  def mount(_params, session, socket) do
     user_id = get_user_id_from_session(session)
     {:ok, progress} = Games.get_user_progress(user_id)
+
+    # Available text sources
+    text_sources = [
+      {:zenquotes, "ZenQuotes API"},
+      {:dummyjson, "DummyJSON API"},
+      {:default, "Built-in Text"}
+    ]
 
     socket =
       socket
@@ -18,7 +25,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:typed_text, "")
       |> assign(:current_index, 0)
       |> assign(:score, 0)
-      |> assign(:lives, 3)
+      |> assign(:lives, 5)
       |> assign(:start_time, nil)
       |> assign(:wpm, 0.0)
       |> assign(:accuracy, 100.0)
@@ -28,12 +35,19 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:sound_enabled, true)
       # For triggering JS sounds
       |> assign(:last_sound_event, nil)
+      # For text sources
+      |> assign(:text_sources, text_sources)
+      |> assign(:selected_source, :zenquotes)
 
     {:ok, socket}
   end
 
   def handle_event("start_game", _params, socket) do
-    current_text = Games.get_typing_text(socket.assigns.current_level)
+    # Get text from the selected source
+    current_text = Games.get_typing_text(
+      socket.assigns.current_level,
+      socket.assigns.selected_source
+    )
     timer_ref = schedule_timer()
 
     socket =
@@ -45,6 +59,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:start_time, System.monotonic_time(:second))
       |> assign(:time_left, 60)
       |> assign(:timer_ref, timer_ref)
+      |> assign(:lives, 5)
 
     {:noreply, socket}
   end
@@ -58,6 +73,17 @@ defmodule TypingAppWeb.TypingLive do
     IO.inspect(socket.assigns.sound_enabled, label: "Sound enabled")
     new_sound_state = !socket.assigns.sound_enabled
     {:noreply, assign(socket, :sound_enabled, new_sound_state)}
+  end
+
+  def handle_event("select_text_source", %{"source" => source}, socket) do
+    # Convert the string value to an atom safely
+    source_atom = case source do
+      "default" -> :default
+      "zenquotes" -> :zenquotes
+      "dummyjson" -> :dummyjson
+      _ -> :default
+    end
+    {:noreply, assign(socket, :selected_source, source_atom)}
   end
 
   def handle_event("next_level", _params, socket) do
@@ -170,7 +196,10 @@ defmodule TypingAppWeb.TypingLive do
       complete_level(socket |> assign(:score, new_score))
     else
       # Generate new text and continue
-      new_text = Games.get_typing_text(socket.assigns.current_level)
+      new_text = Games.get_typing_text(
+        socket.assigns.current_level,
+        socket.assigns.selected_source
+      )
 
       socket
       |> assign(:score, new_score)
@@ -191,6 +220,7 @@ defmodule TypingAppWeb.TypingLive do
 
   defp handle_mistake(socket) do
     new_lives = socket.assigns.lives - 1
+    new_lives = if new_lives < 0, do: 0, else: new_lives
 
     socket = assign(socket, :lives, new_lives)
 
@@ -281,6 +311,8 @@ defmodule TypingAppWeb.TypingLive do
   defp level_description(4), do: "Advanced - Short sentences"
   defp level_description(5), do: "Expert - Full sentences"
 
+  defp lives_message(5), do: "Expert"
+  defp lives_message(4), do: "You're doing great!"
   defp lives_message(3), do: "Perfect!"
   defp lives_message(2), do: "Good job!"
   defp lives_message(1), do: "Be careful!"
