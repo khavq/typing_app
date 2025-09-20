@@ -35,6 +35,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:streak, 0)
       |> assign(:sound_enabled, current_user.sound_enabled)
       |> assign(:typing_sound_enabled, current_user.typing_sound_enabled)
+      |> assign(:background_music_enabled, current_user.background_music_enabled)
       |> assign(:time_left, 60)
       |> assign(:timer_ref, nil)
       # For triggering JS sounds

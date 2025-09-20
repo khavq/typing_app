@@ -87,6 +87,14 @@ defmodule TypingAppWeb.UserLive.Settings do
               <p class="text-sm text-gray-500">Play a sound for each correct keystroke while typing</p>
             </div>
           </label>
+
+          <label class="flex items-center gap-4 cursor-pointer">
+            <.input type="checkbox" field={@game_form[:background_music_enabled]} />
+            <div>
+              <span class="font-medium">Background Music</span>
+              <p class="text-sm text-gray-500">Play relaxing background music while typing</p>
+            </div>
+          </label>
           
           <label class="flex items-center gap-4 cursor-pointer">
             <.input type="checkbox" field={@game_form[:live_check]} />

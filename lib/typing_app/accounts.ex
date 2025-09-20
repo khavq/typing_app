@@ -25,6 +25,7 @@ defmodule TypingApp.Accounts do
       email: "guest@example.com",
       sound_enabled: true,
       typing_sound_enabled: true,
+      background_music_enabled: false,
       live_check: false
     }
   end
