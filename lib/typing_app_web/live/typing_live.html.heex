@@ -87,12 +87,12 @@
           class="typing-input"
           value={@typed_text}
           phx-keyup="key_typed"
-          phx-debounce="50"
+          phx-update="ignore"
+          phx-hook=".TypeFocusSync"
           placeholder="Start typing here..."
           autocomplete="off"
           spellcheck="false"
           autofocus
-          phx-hook=".AutoFocus"
           id="typing-input"
         />
       </div>
@@ -319,6 +319,25 @@
 
     updated() {
       // Re-focus the input when it's updated
+      this.el.focus()
+    }
+  }
+</script>
+
+<script :type={Phoenix.LiveView.ColocatedHook} name=".TypeFocusSync">
+  export default {
+    mounted() {
+      // Focus the input element when it's mounted
+      this.el.focus()
+
+      // Handle value updates from LiveView
+      this.handleEvent("sync_input", (payload) => {
+        this.el.value = payload.value
+      })
+    },
+
+    updated() {
+      // Keep focus on the input field
       this.el.focus()
     }
   }

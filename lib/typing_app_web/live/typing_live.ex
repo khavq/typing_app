@@ -68,6 +68,15 @@ defmodule TypingAppWeb.TypingLive do
     socket = handle_typing_input(socket, typed_text)
     {:noreply, socket}
   end
+  
+  # Handle synchronizing the input field with the current state
+  defp maybe_push_sync_event(socket, typed_text) do
+    if socket.assigns.typed_text != typed_text do
+      push_event(socket, "sync_input", %{value: socket.assigns.typed_text})
+    else
+      socket
+    end
+  end
 
   def handle_event("toggle_sound", _params, socket) do
     IO.inspect(socket.assigns.sound_enabled, label: "Sound enabled")
@@ -161,12 +170,12 @@ defmodule TypingAppWeb.TypingLive do
         |> update_stats(typed_text, true)
 
       true ->
-        # Mistake made
+        # Mistake made - don't update typed_text and sync input field
         socket
-        |> assign(:typed_text, typed_text)
         |> assign(:last_sound_event, "incorrect")
         |> handle_mistake()
-        |> update_stats(typed_text, false)
+        |> update_stats(socket.assigns.typed_text, false)
+        |> maybe_push_sync_event(typed_text)
     end
   end
 
