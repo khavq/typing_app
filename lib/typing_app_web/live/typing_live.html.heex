@@ -76,7 +76,10 @@
   <!-- Hidden data for JavaScript sound system -->
   <div id="sound-data"
        data-sound-enabled={to_string(@sound_enabled)}
+       data-typing-sound-enabled={to_string(@typing_sound_enabled)}
        data-last-sound-event={@last_sound_event}
+       data-current-index={@current_index}
+       data-key-pressed={@current_index > 0 && String.at(@current_text, @current_index-1) == String.at(@typed_text, @current_index-1)}
        style="display: none;">
   </div>
 
@@ -215,15 +218,27 @@
         const soundData = document.getElementById('sound-data')
         if (soundData) {
           const soundEnabled = soundData.dataset.soundEnabled === "true"
+          const typingSoundEnabled = soundData.dataset.typingSoundEnabled === "true"
           const lastSoundEvent = soundData.dataset.lastSoundEvent
+          const keyPressed = soundData.hasAttribute('data-key-pressed')
 
           this.soundEnabled = soundEnabled
+          this.typingSoundEnabled = typingSoundEnabled
+          
+          // Track if we've played a keystroke sound to avoid duplicate sounds
+          const currentIndex = parseInt(soundData.dataset.currentIndex || '0')
+          if (this.lastIndex !== currentIndex) {
+            this.lastIndex = currentIndex
+            this.keyStrokePlayed = false
+          }
 
-          // Play sound if there's a new event and sound is enabled
-          console.log('Sound enabled:', this.soundEnabled)
-          console.log('this Last sound event:', this.lastSoundEvent)
-          console.log('Last sound event:', lastSoundEvent)
+          // Play keystroke sound when typing correctly
+          if (keyPressed && this.typingSoundEnabled && this.soundEnabled && !this.keyStrokePlayed) {
+            this.playKeySound()
+            this.keyStrokePlayed = true
+          }
 
+          // Play other sound events
           if (lastSoundEvent && lastSoundEvent !== this.lastSoundEvent && this.soundEnabled) {
             console.log('Playing sound', lastSoundEvent)
             this.playSound(lastSoundEvent)
@@ -245,6 +260,27 @@
         if (this.audioContext && this.audioContext.state === 'suspended') {
           this.audioContext.resume()
         }
+      },
+
+      playKeySound() {
+        if (!this.soundEnabled || !this.typingSoundEnabled || !this.audioContext) return
+
+        this.resumeContext()
+
+        const oscillator = this.audioContext.createOscillator()
+        const gainNode = this.audioContext.createGain()
+
+        oscillator.connect(gainNode)
+        gainNode.connect(this.audioContext.destination)
+
+        // Softer, higher-pitched click for keystrokes
+        oscillator.frequency.setValueAtTime(1200, this.audioContext.currentTime)
+        oscillator.frequency.exponentialRampToValueAtTime(1400, this.audioContext.currentTime + 0.05)
+        gainNode.gain.setValueAtTime(0.03, this.audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.05)
+        
+        oscillator.start()
+        oscillator.stop(this.audioContext.currentTime + 0.05)
       },
 
       playSound(type) {

@@ -10,6 +10,7 @@ defmodule TypingApp.Accounts.User do
     field :authenticated_at, :utc_datetime, virtual: true
     field :sound_enabled, :boolean, default: true
     field :live_check, :boolean, default: false
+    field :typing_sound_enabled, :boolean, default: true
 
     timestamps(type: :utc_datetime)
   end
@@ -137,7 +138,7 @@ defmodule TypingApp.Accounts.User do
   """
   def game_settings_changeset(user, attrs) do
     user
-    |> cast(attrs, [:sound_enabled, :live_check])
+    |> cast(attrs, [:sound_enabled, :live_check, :typing_sound_enabled])
     |> validate_required([])
   end
 end

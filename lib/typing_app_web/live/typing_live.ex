@@ -33,9 +33,10 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:wpm, 0.0)
       |> assign(:accuracy, 100.0)
       |> assign(:streak, 0)
+      |> assign(:sound_enabled, current_user.sound_enabled)
+      |> assign(:typing_sound_enabled, current_user.typing_sound_enabled)
       |> assign(:time_left, 60)
       |> assign(:timer_ref, nil)
-      |> assign(:sound_enabled, true)
       # For triggering JS sounds
       |> assign(:last_sound_event, nil)
       # For text sources

@@ -24,6 +24,7 @@ defmodule TypingApp.Accounts do
       id: nil,  # Indicates this is a non-persisted user
       email: "guest@example.com",
       sound_enabled: true,
+      typing_sound_enabled: true,
       live_check: false
     }
   end

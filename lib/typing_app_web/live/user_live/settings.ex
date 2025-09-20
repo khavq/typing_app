@@ -76,7 +76,15 @@ defmodule TypingAppWeb.UserLive.Settings do
             <.input type="checkbox" field={@game_form[:sound_enabled]} />
             <div>
               <span class="font-medium">Sound Enabled</span>
-              <p class="text-sm text-gray-500">Play sound effects while typing</p>
+              <p class="text-sm text-gray-500">Play sound effects for game events (level complete, etc.)</p>
+            </div>
+          </label>
+          
+          <label class="flex items-center gap-4 cursor-pointer">
+            <.input type="checkbox" field={@game_form[:typing_sound_enabled]} />
+            <div>
+              <span class="font-medium">Typing Sound Feedback</span>
+              <p class="text-sm text-gray-500">Play a sound for each correct keystroke while typing</p>
             </div>
           </label>
           
