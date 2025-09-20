@@ -100,14 +100,18 @@ defmodule TypingAppWeb.TypingLive do
 
   def handle_event("next_level", _params, socket) do
     new_level = socket.assigns.current_level + 1
-
-    # Update progress in database
-    {:ok, _} =
-      Games.update_user_progress(socket.assigns.progress, %{
-        current_level: new_level,
-        total_score: socket.assigns.progress.total_score + socket.assigns.score
-      })
-
+    {_, user_id} = get_current_user(socket)
+    
+    # For registered users, update progress in database
+    if user_id do
+      {:ok, _} =
+        Games.update_user_progress(socket.assigns.progress, %{
+          current_level: new_level,
+          total_score: socket.assigns.progress.total_score + socket.assigns.score
+        })
+    end
+    
+    # For both guest and registered users, update the socket assigns
     socket =
       socket
       |> assign(:current_level, new_level)

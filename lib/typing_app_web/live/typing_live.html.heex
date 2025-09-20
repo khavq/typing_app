@@ -124,6 +124,23 @@
         <p>Final Score: <%= @score %></p>
         <p>WPM: <%= Float.round(@wpm, 1) %> | Accuracy: <%= Float.round(@accuracy, 1) %>%</p>
 
+        <!-- Guest user sign-up prompt -->
+        <%= unless @current_scope && @current_scope.user do %>
+          <div class="guest-prompt" style="margin: 15px 0; padding: 15px; background: rgba(255,255,255,0.2); border-radius: 10px; border: 2px dashed #fff;">
+            <h3>Playing as Guest</h3>
+            <p>Your progress won't be saved. Sign up to:</p>
+            <ul style="text-align: left; display: inline-block;">
+              <li>Save your progress</li>
+              <li>Track your improvement</li>
+              <li>Compete on leaderboards</li>
+            </ul>
+            <div>
+              <a href="/users/register" class="btn btn-secondary">Sign Up</a>
+              <a href="/users/log-in" class="btn btn-secondary">Log In</a>
+            </div>
+          </div>
+        <% end %>
+
         <div class="controls" style="margin-top: 20px;">
           <%= if @current_level < 5 do %>
             <button class="btn btn-primary" phx-click="next_level">⬆️ Next Level</button>
