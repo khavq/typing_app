@@ -5,8 +5,11 @@ defmodule TypingAppWeb.TypingLive do
   alias TypingApp.Accounts
 
   def mount(_params, session, socket) do
-    # Get the current user if authenticated
-    {:ok, progress} = Games.get_user_progress(socket.assigns.current_scope.user.id)
+    # Handle both authenticated users and guests
+    {current_user, user_id} = get_current_user(socket)
+    
+    # Get progress based on user_id (handles nil for guests)
+    {:ok, progress} = Games.get_user_progress(user_id)
 
     # Available text sources
     text_sources = [
@@ -17,6 +20,7 @@ defmodule TypingAppWeb.TypingLive do
 
     socket =
       socket
+      |> assign(:current_user, current_user) # Add the current user to assigns
       |> assign(:progress, progress)
       |> assign(:current_level, progress.current_level)
       |> assign(:game_state, :waiting)
@@ -193,22 +197,20 @@ defmodule TypingAppWeb.TypingLive do
 
     new_score = socket.assigns.score + score_earned
 
-    # Save game session
-    user_id = 
-      if socket.assigns[:current_scope] do
-        socket.assigns.current_scope.user.id
-      else
-        nil # Handle case when not authenticated
-      end
-      
-    Games.create_game_session(%{
-      user_id: user_id,
-      level: socket.assigns.current_level,
-      score: score_earned,
-      wpm: wpm,
-      accuracy: socket.assigns.accuracy,
-      time_taken: elapsed_time
-    })
+    # Save game session (only for authenticated users)
+    {_current_user, user_id} = get_current_user(socket)
+    
+    # Only save sessions for authenticated users
+    if user_id do
+      Games.create_game_session(%{
+        user_id: user_id,
+        level: socket.assigns.current_level,
+        score: score_earned,
+        wpm: wpm,
+        accuracy: socket.assigns.accuracy,
+        time_taken: elapsed_time
+      })
+    end
 
     # Check if level should be completed (after 3 successful texts for demo)
     if new_score >= socket.assigns.current_level * 300 do
@@ -238,15 +240,11 @@ defmodule TypingAppWeb.TypingLive do
   end
 
   defp handle_mistake(socket) do
+    # Get current user (either authenticated or guest)
+    {current_user, _user_id} = get_current_user(socket)
+    
     # Check if live_check is enabled for the current user
-    should_decrement_lives = 
-      if socket.assigns[:current_scope] && 
-         socket.assigns.current_scope.user && 
-         socket.assigns.current_scope.user.live_check == false do
-        false # Don't decrement lives
-      else
-        true # Default: decrement lives
-      end
+    should_decrement_lives = current_user.live_check != false
 
     # Only decrement lives if needed
     new_lives = if should_decrement_lives do
@@ -315,6 +313,19 @@ defmodule TypingAppWeb.TypingLive do
     socket
     |> assign(:timer_ref, nil)
     |> assign(:time_left, 60)
+  end
+
+  # Helper to get current user or create a guest user if not authenticated
+  defp get_current_user(socket) do
+    if socket.assigns[:current_scope] && socket.assigns.current_scope.user do
+      # Authenticated user
+      user = socket.assigns.current_scope.user
+      {user, user.id}
+    else
+      # Guest user
+      guest_user = Accounts.create_guest_user()
+      {guest_user, nil}
+    end
   end
 
   # Helper for rendering character states

@@ -11,6 +11,24 @@ defmodule TypingApp.Accounts do
   ## Database getters
 
   @doc """
+  Creates a guest user with default settings.
+  This user is not persisted in the database.
+  
+  ## Examples
+
+      iex> create_guest_user()
+      %User{}
+  """
+  def create_guest_user do
+    %User{
+      id: nil,  # Indicates this is a non-persisted user
+      email: "guest@example.com",
+      sound_enabled: true,
+      live_check: false
+    }
+  end
+
+  @doc """
   Gets a user by email.
 
   ## Examples

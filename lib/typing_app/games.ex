@@ -163,11 +163,22 @@ defmodule TypingApp.Games do
     {:error, :all_urls_failed}
   end
 
-  def get_user_progress(user_id) do
+  def get_user_progress(user_id) when is_integer(user_id) do
     case Repo.get_by(UserProgress, user_id: user_id) do
       nil -> create_user_progress(%{user_id: user_id})
       progress -> {:ok, progress}
     end
+  end
+  
+  # Handle guest users (nil user_id)
+  def get_user_progress(nil) do
+    # Return default progress for guest users
+    {:ok, %UserProgress{
+      current_level: 1,
+      total_score: 0,
+      best_wpm: 0.0,
+      games_played: 0
+    }}
   end
 
   def create_user_progress(attrs) do
