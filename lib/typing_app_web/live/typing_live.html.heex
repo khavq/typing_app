@@ -75,7 +75,7 @@
 
   <!-- Hidden data for JavaScript sound system -->
   <div id="sound-data"
-       data-sound-enabled={@sound_enabled}
+       data-sound-enabled={to_string(@sound_enabled)}
        data-last-sound-event={@last_sound_event}
        style="display: none;">
   </div>
@@ -197,7 +197,7 @@
         // Check for sound events when component updates
         const soundData = document.getElementById('sound-data')
         if (soundData) {
-          const soundEnabled = soundData.dataset.hasOwnProperty('soundEnabled')
+          const soundEnabled = soundData.dataset.soundEnabled === "true"
           const lastSoundEvent = soundData.dataset.lastSoundEvent
 
           this.soundEnabled = soundEnabled
