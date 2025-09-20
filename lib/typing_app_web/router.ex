@@ -20,7 +20,6 @@ defmodule TypingAppWeb.Router do
   scope "/", TypingAppWeb do
     pipe_through :browser
 
-    live "/", TypingLive, :index
   end
 
   # Other scopes may use custom stacks.
@@ -67,6 +66,7 @@ defmodule TypingAppWeb.Router do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
+      live "/", TypingLive, :index
     end
 
     post "/users/log-in", UserSessionController, :create

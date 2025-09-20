@@ -5,8 +5,8 @@ defmodule TypingAppWeb.TypingLive do
   alias TypingApp.Accounts
 
   def mount(_params, session, socket) do
-    user_id = get_user_id_from_session(session)
-    {:ok, progress} = Games.get_user_progress(user_id)
+    # Get the current user if authenticated
+    {:ok, progress} = Games.get_user_progress(socket.assigns.current_scope.user.id)
 
     # Available text sources
     text_sources = [
@@ -17,7 +17,6 @@ defmodule TypingAppWeb.TypingLive do
 
     socket =
       socket
-      |> assign(:user_id, user_id)
       |> assign(:progress, progress)
       |> assign(:current_level, progress.current_level)
       |> assign(:game_state, :waiting)
@@ -68,7 +67,7 @@ defmodule TypingAppWeb.TypingLive do
     socket = handle_typing_input(socket, typed_text)
     {:noreply, socket}
   end
-  
+
   # Handle synchronizing the input field with the current state
   defp maybe_push_sync_event(socket, typed_text) do
     if socket.assigns.typed_text != typed_text do
@@ -195,8 +194,15 @@ defmodule TypingAppWeb.TypingLive do
     new_score = socket.assigns.score + score_earned
 
     # Save game session
+    user_id = 
+      if socket.assigns[:current_scope] do
+        socket.assigns.current_scope.user.id
+      else
+        nil # Handle case when not authenticated
+      end
+      
     Games.create_game_session(%{
-      user_id: socket.assigns.user_id,
+      user_id: user_id,
       level: socket.assigns.current_level,
       score: score_earned,
       wpm: wpm,
@@ -232,8 +238,23 @@ defmodule TypingAppWeb.TypingLive do
   end
 
   defp handle_mistake(socket) do
-    new_lives = socket.assigns.lives - 1
-    new_lives = if new_lives < 0, do: 0, else: new_lives
+    # Check if live_check is enabled for the current user
+    should_decrement_lives = 
+      if socket.assigns[:current_scope] && 
+         socket.assigns.current_scope.user && 
+         socket.assigns.current_scope.user.live_check == false do
+        false # Don't decrement lives
+      else
+        true # Default: decrement lives
+      end
+
+    # Only decrement lives if needed
+    new_lives = if should_decrement_lives do
+      lives = socket.assigns.lives - 1
+      if lives < 0, do: 0, else: lives
+    else
+      socket.assigns.lives
+    end
 
     socket = assign(socket, :lives, new_lives)
 
@@ -294,11 +315,6 @@ defmodule TypingAppWeb.TypingLive do
     socket
     |> assign(:timer_ref, nil)
     |> assign(:time_left, 60)
-  end
-
-  defp get_user_id_from_session(session) do
-    # In a real app, extract from session or create guest user
-    session["user_id"] || 1
   end
 
   # Helper for rendering character states
