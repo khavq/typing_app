@@ -131,4 +131,13 @@ defmodule TypingApp.Accounts.User do
     Bcrypt.no_user_verify()
     false
   end
+
+  @doc """
+  A user changeset for updating game settings.
+  """
+  def game_settings_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:sound_enabled, :live_check])
+    |> validate_required([])
+  end
 end

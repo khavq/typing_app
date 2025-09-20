@@ -113,6 +113,37 @@ defmodule TypingApp.Accounts do
   def sudo_mode?(_user, _minutes), do: false
 
   @doc """
+  Returns an `%Ecto.Changeset{}` for tracking game settings changes.
+
+  ## Examples
+
+      iex> change_user_game_settings(user)
+      %Ecto.Changeset{data: %User{}}
+
+  """
+  def change_user_game_settings(user, attrs \\ %{}) do
+    User.game_settings_changeset(user, attrs)
+  end
+
+  @doc """
+  Updates the user game settings.
+
+  ## Examples
+
+      iex> update_user_game_settings(user, %{sound_enabled: false, live_check: true})
+      {:ok, %User{}}
+
+      iex> update_user_game_settings(user, %{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_user_game_settings(user, attrs) do
+    user
+    |> User.game_settings_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user email.
 
   See `TypingApp.Accounts.User.email_changeset/3` for a list of supported options.

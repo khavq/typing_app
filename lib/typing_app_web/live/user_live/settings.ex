@@ -12,7 +12,7 @@ defmodule TypingAppWeb.UserLive.Settings do
       <div class="text-center">
         <.header>
           Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
+          <:subtitle>Manage your account email address, password, and game settings</:subtitle>
         </.header>
       </div>
 
@@ -62,6 +62,39 @@ defmodule TypingAppWeb.UserLive.Settings do
           Save Password
         </.button>
       </.form>
+
+      <div class="divider" />
+      
+      <.header>
+        Game Settings
+        <:subtitle>Customize your gameplay experience</:subtitle>
+      </.header>
+
+      <.form for={@game_form} id="game_form" phx-submit="update_game_settings">
+        <div class="space-y-4">
+          <label class="flex items-center gap-4 cursor-pointer">
+            <.input type="checkbox" field={@game_form[:sound_enabled]} />
+            <div>
+              <span class="font-medium">Sound Enabled</span>
+              <p class="text-sm text-gray-500">Play sound effects while typing</p>
+            </div>
+          </label>
+          
+          <label class="flex items-center gap-4 cursor-pointer">
+            <.input type="checkbox" field={@game_form[:live_check]} />
+            <div>
+              <span class="font-medium">Live Checking</span>
+              <p class="text-sm text-gray-500">When enabled, mistakes will reduce lives. When disabled, practice without losing lives.</p>
+            </div>
+          </label>
+        </div>
+        
+        <div class="mt-4">
+          <.button variant="primary" phx-disable-with="Saving...">
+            Save Game Settings
+          </.button>
+        </div>
+      </.form>
     </Layouts.app>
     """
   end
@@ -84,12 +117,16 @@ defmodule TypingAppWeb.UserLive.Settings do
     user = socket.assigns.current_scope.user
     email_changeset = Accounts.change_user_email(user, %{}, validate_unique: false)
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
+    
+    # Create the game settings form
+    game_changeset = Accounts.change_user_game_settings(user, %{})
 
     socket =
       socket
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
+      |> assign(:game_form, to_form(game_changeset))
       |> assign(:trigger_submit, false)
 
     {:ok, socket}
@@ -152,6 +189,24 @@ defmodule TypingAppWeb.UserLive.Settings do
 
       changeset ->
         {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
+    end
+  end
+
+  def handle_event("update_game_settings", %{"user" => game_params}, socket) do
+    user = socket.assigns.current_scope.user
+
+    case Accounts.update_user_game_settings(user, game_params) do
+      {:ok, updated_user} ->
+        # Update the game form with the new values
+        game_changeset = Accounts.change_user_game_settings(updated_user, %{})
+        
+        {:noreply, 
+          socket
+          |> put_flash(:info, "Game settings updated successfully.")
+          |> assign(:game_form, to_form(game_changeset))}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, game_form: to_form(changeset, action: :insert))}
     end
   end
 end
