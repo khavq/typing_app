@@ -25,11 +25,24 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/typing_app"
 import topbar from "../vendor/topbar"
 
+// Import our custom hooks
+import SoundSystem from "./hooks/sound_system"
+import AutoFocus from "./hooks/auto_focus"
+import TypeFocusSync from "./hooks/type_focus_sync"
+import AutoFocusButton from "./hooks/auto_focus_button"
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {
+    ...colocatedHooks,
+    // Register our custom hooks
+    SoundSystem,
+    AutoFocus,
+    TypeFocusSync,
+    AutoFocusButton
+  },
 })
 
 // Show progress bar on live navigation and form submits

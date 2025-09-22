@@ -3,6 +3,7 @@ defmodule TypingAppWeb.TypingLive do
 
   alias TypingApp.Games
   alias TypingApp.Accounts
+  alias TypingApp.Games.GameHelpers
 
   def mount(_params, session, socket) do
     # Handle both authenticated users and guests
@@ -62,7 +63,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:typed_text, "")
       |> assign(:current_index, 0)
       |> assign(:start_time, System.monotonic_time(:second))
-      |> assign(:time_left, calculate_time_left(socket.assigns.current_level, current_text))
+      |> assign(:time_left, GameHelpers.calculate_time_left(socket.assigns.current_level, current_text))
       |> assign(:timer_ref, timer_ref)
       |> assign(:lives, 5)
 
@@ -86,7 +87,16 @@ defmodule TypingAppWeb.TypingLive do
   def handle_event("toggle_sound", _params, socket) do
     IO.inspect(socket.assigns.sound_enabled, label: "Sound enabled")
     new_sound_state = !socket.assigns.sound_enabled
-    {:noreply, assign(socket, :sound_enabled, new_sound_state)}
+    socket = assign(socket, :sound_enabled, new_sound_state)
+    
+    # If the game is in playing state, we need to refocus the typing input
+    socket = if socket.assigns.game_state == :playing do
+      push_event(socket, "refocus_typing", %{})
+    else
+      socket
+    end
+    
+    {:noreply, socket}
   end
 
   def handle_event("select_text_source", %{"source" => source}, socket) do
@@ -157,9 +167,7 @@ defmodule TypingAppWeb.TypingLive do
     end
   end
 
-  defp calculate_time_left(level, text) do
-    Float.round(String.length(text) / level * 10)
-  end
+  # calculate_time_left has been moved to GameHelpers
 
   defp handle_typing_input(socket, typed_text) do
     current_text = socket.assigns.current_text
@@ -276,7 +284,7 @@ defmodule TypingAppWeb.TypingLive do
     accuracy =
       if typed_length > 0 do
         correct_chars =
-          count_correct_chars(typed_text, String.slice(current_text, 0, typed_length))
+          GameHelpers.count_correct_chars(typed_text, String.slice(current_text, 0, typed_length))
 
         correct_chars / typed_length * 100
       else
@@ -300,12 +308,7 @@ defmodule TypingAppWeb.TypingLive do
     |> assign(:wpm, wpm)
   end
 
-  defp count_correct_chars(typed, expected) do
-    typed
-    |> String.graphemes()
-    |> Enum.zip(String.graphemes(expected))
-    |> Enum.count(fn {t, e} -> t == e end)
-  end
+  # count_correct_chars has been moved to GameHelpers
 
   defp schedule_timer do
     Process.send_after(self(), :timer_tick, 1000)
@@ -334,39 +337,21 @@ defmodule TypingAppWeb.TypingLive do
     end
   end
 
-  # Helper for rendering character states
+  # Helper for rendering character states - delegated to GameHelpers
   def char_class(index, current_index, typed_text, original_text) do
-    cond do
-      index < current_index ->
-        typed_char = String.at(typed_text, index)
-        original_char = String.at(original_text, index)
-        if typed_char == original_char, do: "correct", else: "incorrect"
-
-      index == current_index ->
-        "current"
-
-      true ->
-        ""
-    end
+    GameHelpers.char_class(index, current_index, typed_text, original_text)
   end
 
-  # View helpers
-  defp level_description(1), do: "Easy Mode - Single words"
-  defp level_description(2), do: "Getting Better - Short words"
-  defp level_description(3), do: "Intermediate - Longer words"
-  defp level_description(4), do: "Advanced - Short sentences"
-  defp level_description(5), do: "Expert - Full sentences"
+  # View helpers delegated to GameHelpers
+  defp level_description(level) do
+    GameHelpers.level_description(level)
+  end
 
-  defp lives_message(5), do: "Expert"
-  defp lives_message(4), do: "You're doing great!"
-  defp lives_message(3), do: "Perfect!"
-  defp lives_message(2), do: "Good job!"
-  defp lives_message(1), do: "Be careful!"
-  defp lives_message(0), do: "Try again!"
-
-  defp progress_percentage(_index, ""), do: 0
+  defp lives_message(lives) do
+    GameHelpers.lives_message(lives)
+  end
 
   defp progress_percentage(index, text) do
-    round(index / String.length(text) * 100)
+    GameHelpers.progress_percentage(index, text)
   end
 end
