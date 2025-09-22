@@ -98,78 +98,12 @@ export default {
     
     // Create music library with different styles
     this.musicLibrary = [
-      this.createAmbienceTrack,
       this.createLofiTrack,
       this.createPianoTrack,
-      this.createMeditationTrack,
-      this.createCalmTrack
     ];
     
     this.musicInitialized = true;
-    console.log('Web Audio music library initialized with 5 tracks');
-  },
-  
-  // Track 1: Ambient Atmosphere
-  createAmbienceTrack() {
-    if (!this.audioContext) return null;
-    this.resumeContext();
-    
-    const master = this.audioContext.createGain();
-    master.gain.value = 0.15;
-    master.connect(this.audioContext.destination);
-    
-    // Create pad sounds
-    const createPad = (baseFreq, detune) => {
-      const osc = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
-      const filter = this.audioContext.createBiquadFilter();
-      
-      osc.type = 'sine';
-      osc.frequency.value = baseFreq;
-      osc.detune.value = detune;
-      
-      filter.type = 'lowpass';
-      filter.frequency.value = 1000;
-      filter.Q.value = 1.5;
-      
-      gain.gain.value = 0.1;
-      
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(master);
-      
-      osc.start();
-      return { oscillator: osc, gain: gain, filter: filter };
-    };
-    
-    // Create ambient pad chord (Fm9)
-    const pads = [
-      createPad(174.61, 0),     // F3
-      createPad(349.23, 5),     // F4
-      createPad(415.30, -5),    // Ab4
-      createPad(523.25, 0),     // C5
-      createPad(587.33, 4)      // D5
-    ];
-    
-    // Add slow LFO for movement
-    const lfo = this.audioContext.createOscillator();
-    const lfoGain = this.audioContext.createGain();
-    
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.05;
-    lfoGain.gain.value = 100;
-    
-    lfo.connect(lfoGain);
-    pads.forEach(pad => lfoGain.connect(pad.filter.frequency));
-    
-    lfo.start();
-    
-    return {
-      pads: pads,
-      lfo: lfo,
-      master: master,
-      name: 'Ambient Atmosphere'
-    };
+    console.log('Web Audio music library initialized with 2 tracks');
   },
   
   // Track 2: Lofi Style
@@ -316,125 +250,8 @@ export default {
     };
   },
   
-  // Track 4: Deep Meditation
-  createMeditationTrack() {
-    if (!this.audioContext) return null;
-    this.resumeContext();
-    
-    const master = this.audioContext.createGain();
-    master.gain.value = 0.15;
-    master.connect(this.audioContext.destination);
-    
-    // Drone synths
-    const createDrone = (freq, type = 'sine') => {
-      const osc = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
-      const filter = this.audioContext.createBiquadFilter();
-      
-      osc.type = type;
-      osc.frequency.value = freq;
-      
-      filter.type = 'lowpass';
-      filter.frequency.value = 800;
-      
-      gain.gain.value = 0.1;
-      
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(master);
-      
-      osc.start();
-      
-      return { oscillator: osc, gain: gain, filter: filter };
-    };
-    
-    // Create drones in perfect fifths for meditation
-    const drones = [
-      createDrone(110),    // A2
-      createDrone(164.81), // E3
-      createDrone(220),    // A3
-      createDrone(293.66)  // D4
-    ];
-    
-    // Add very slow LFO for subtle movement
-    const lfo = this.audioContext.createOscillator();
-    const lfoGain = this.audioContext.createGain();
-    
-    lfo.type = 'triangle';
-    lfo.frequency.value = 0.03;
-    lfoGain.gain.value = 100;
-    
-    lfo.connect(lfoGain);
-    drones.forEach(drone => {
-      lfoGain.connect(drone.filter.frequency);
-    });
-    
-    lfo.start();
-    
-    return {
-      drones: drones,
-      lfo: lfo,
-      master: master,
-      name: 'Deep Meditation'
-    };
-  },
   
-  // Track 5: Calm Vibes
-  createCalmTrack() {
-    if (!this.audioContext) return null;
-    this.resumeContext();
-    
-    const master = this.audioContext.createGain();
-    master.gain.value = 0.15;
-    master.connect(this.audioContext.destination);
-    
-    // Mellow synth pad
-    const createMellowPad = (frequency, detune = 0) => {
-      const oscillator1 = this.audioContext.createOscillator();
-      const oscillator2 = this.audioContext.createOscillator();
-      const gainNode = this.audioContext.createGain();
-      const filter = this.audioContext.createBiquadFilter();
-      
-      oscillator1.type = 'sine';
-      oscillator1.frequency.value = frequency;
-      oscillator1.detune.value = detune;
-      
-      oscillator2.type = 'triangle';
-      oscillator2.frequency.value = frequency * 2;
-      oscillator2.detune.value = detune - 5;
-      
-      filter.type = 'lowpass';
-      filter.frequency.value = 1000;
-      filter.Q.value = 0.8;
-      
-      gainNode.gain.value = 0.08;
-      
-      oscillator1.connect(filter);
-      oscillator2.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(master);
-      
-      oscillator1.start();
-      oscillator2.start();
-      
-      return { oscillators: [oscillator1, oscillator2], gain: gainNode, filter: filter };
-    };
-    
-    // Create Gmaj9 chord (G, B, D, F#, A)
-    const pads = [
-      createMellowPad(196.00, 0),   // G3
-      createMellowPad(246.94, 4),   // B3
-      createMellowPad(293.66, -4),  // D4
-      createMellowPad(370.00, 0),   // F#4
-      createMellowPad(440.00, 3)    // A4
-    ];
-    
-    return {
-      pads: pads,
-      master: master,
-      name: 'Calm Vibes'
-    };
-  },
+  
   
   startBackgroundMusic() {
     if (!this.soundEnabled || !this.backgroundMusicEnabled || this.backgroundMusicPlaying) return;
@@ -454,6 +271,12 @@ export default {
       // Select a random track from our library
       const trackIndex = Math.floor(Math.random() * this.musicLibrary.length);
       const createTrackFunction = this.musicLibrary[trackIndex];
+      
+      // Safety check in case the selected track function doesn't exist
+      if (!createTrackFunction) {
+        console.error('Selected music track function not found');
+        return;
+      }
       
       // Create the selected track
       this.currentMusicTrack = createTrackFunction.call(this);

@@ -57,6 +57,21 @@ defmodule TypingApp.Games do
           {:ok, text} -> {:ok, text}
           {:error, _reason} -> {:error, :api_failed}
         end
+      :advice ->
+        case get_advice_text(level) do
+          {:ok, text} -> {:ok, text}
+          {:error, _reason} -> {:error, :api_failed}
+        end
+      :bored ->
+        case get_bored_text(level) do
+          {:ok, text} -> {:ok, text}
+          {:error, _reason} -> {:error, :api_failed}
+        end
+      :programming ->
+        case get_programming_quote_text(level) do
+          {:ok, text} -> {:ok, text}
+          {:error, _reason} -> {:error, :api_failed}
+        end
       _ -> 
         # Unknown source, use default
         {:ok, get_default_text(level)}
@@ -184,6 +199,105 @@ defmodule TypingApp.Games do
   defp try_dummyjson_api_call([]) do
     {:error, :all_urls_failed}
   end
+
+  @doc """
+  Get short advice lines from Advice Slip API (https://api.adviceslip.com/)
+  """
+  def get_advice_text(_level) do
+    urls = [
+      "https://api.adviceslip.com/advice"
+    ]
+    try_advice_api_call(urls)
+  end
+
+  defp try_advice_api_call([url | remaining_urls]) do
+    try do
+      case Req.get(url, connect_options: [timeout: 5000], retry: false) do
+        {:ok, %{status: 200, body: body}} when is_binary(body) ->
+          # The API returns a JSON string; Req may not decode when content-type is text/html
+          case Jason.decode(body) do
+            {:ok, %{"slip" => %{"advice" => advice}}} when is_binary(advice) -> {:ok, advice}
+            _ -> if remaining_urls == [], do: {:error, :bad_format}, else: try_advice_api_call(remaining_urls)
+          end
+        {:ok, %{status: 200, body: %{"slip" => %{"advice" => advice}}}} ->
+          {:ok, advice}
+        {:ok, %{status: code}} ->
+          Logger.warning("Advice API returned status #{code}")
+          if remaining_urls == [], do: {:error, :bad_status}, else: try_advice_api_call(remaining_urls)
+        {:error, reason} ->
+          Logger.error("Failed to fetch from Advice API: #{inspect(reason)}")
+          if remaining_urls == [], do: {:error, reason}, else: try_advice_api_call(remaining_urls)
+      end
+    rescue
+      e -> 
+        Logger.error("Advice API exception: #{inspect(e)}")
+        if remaining_urls == [], do: {:error, :exception}, else: try_advice_api_call(remaining_urls)
+    end
+  end
+
+  defp try_advice_api_call([]), do: {:error, :all_urls_failed}
+
+  @doc """
+  Get short activity text from Bored API (https://www.boredapi.com/)
+  """
+  def get_bored_text(_level) do
+    urls = [
+      "https://www.boredapi.com/api/activity"
+    ]
+    try_bored_api_call(urls)
+  end
+
+  defp try_bored_api_call([url | remaining_urls]) do
+    try do
+      case Req.get(url, connect_options: [timeout: 5000]) do
+        {:ok, %{status: 200, body: %{"activity" => activity}}} when is_binary(activity) ->
+          {:ok, activity}
+        {:ok, %{status: code}} ->
+          Logger.warning("Bored API returned status #{code}")
+          if remaining_urls == [], do: {:error, :bad_status}, else: try_bored_api_call(remaining_urls)
+        {:error, reason} ->
+          Logger.error("Failed to fetch from Bored API: #{inspect(reason)}")
+          if remaining_urls == [], do: {:error, reason}, else: try_bored_api_call(remaining_urls)
+      end
+    rescue
+      e -> 
+        Logger.error("Bored API exception: #{inspect(e)}")
+        if remaining_urls == [], do: {:error, :exception}, else: try_bored_api_call(remaining_urls)
+    end
+  end
+
+  defp try_bored_api_call([]), do: {:error, :all_urls_failed}
+
+  @doc """
+  Programming quotes API: https://programming-quotes-api.vercel.app/api/random
+  """
+  def get_programming_quote_text(_level) do
+    urls = [
+      "https://programming-quotes-api.vercel.app/api/random"
+    ]
+    try_programming_api_call(urls)
+  end
+
+  defp try_programming_api_call([url | remaining_urls]) do
+    try do
+      case Req.get(url, connect_options: [timeout: 5000]) do
+        {:ok, %{status: 200, body: %{"en" => quote}}} when is_binary(quote) ->
+          {:ok, quote}
+        {:ok, %{status: code}} ->
+          Logger.warning("Programming Quotes API returned status #{code}")
+          if remaining_urls == [], do: {:error, :bad_status}, else: try_programming_api_call(remaining_urls)
+        {:error, reason} ->
+          Logger.error("Failed to fetch from Programming Quotes API: #{inspect(reason)}")
+          if remaining_urls == [], do: {:error, reason}, else: try_programming_api_call(remaining_urls)
+      end
+    rescue
+      e -> 
+        Logger.error("Programming Quotes API exception: #{inspect(e)}")
+        if remaining_urls == [], do: {:error, :exception}, else: try_programming_api_call(remaining_urls)
+    end
+  end
+
+  defp try_programming_api_call([]), do: {:error, :all_urls_failed}
 
   def get_user_progress(user_id) when is_integer(user_id) do
     case Repo.get_by(UserProgress, user_id: user_id) do

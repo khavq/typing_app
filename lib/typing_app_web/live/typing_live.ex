@@ -8,14 +8,17 @@ defmodule TypingAppWeb.TypingLive do
   def mount(_params, _session, socket) do
     # Handle both authenticated users and guests
     {current_user, user_id} = get_current_user(socket)
-    
+
     # Get progress based on user_id (handles nil for guests)
     {:ok, progress} = Games.get_user_progress(user_id)
 
     # Available text sources
     text_sources = [
-      {:zenquotes, "ZenQuotes API"},
       {:dummyjson, "DummyJSON API"},
+      {:advice, "Advice Slip API"},
+      {:bored, "Bored API"},
+      {:programming, "Programming Quotes"},
+      {:zenquotes, "ZenQuotes API"},
       {:default, "Built-in Text"}
     ]
 
@@ -91,14 +94,14 @@ defmodule TypingAppWeb.TypingLive do
     IO.inspect(socket.assigns.sound_enabled, label: "Sound enabled")
     new_sound_state = !socket.assigns.sound_enabled
     socket = assign(socket, :sound_enabled, new_sound_state)
-    
+
     # If the game is in playing state, we need to refocus the typing input
     socket = if socket.assigns.game_state == :playing do
       push_event(socket, "refocus_typing", %{})
     else
       socket
     end
-    
+
     {:noreply, socket}
   end
 
@@ -108,15 +111,18 @@ defmodule TypingAppWeb.TypingLive do
       "default" -> :default
       "zenquotes" -> :zenquotes
       "dummyjson" -> :dummyjson
+      "advice" -> :advice
+      "bored" -> :bored
+      "programming" -> :programming
       _ -> :default
     end
-    
+
     # Save preference to database for registered users
     {current_user, user_id} = get_current_user(socket)
-    
+
     # Prepare updated socket with selected source
     socket = assign(socket, :selected_source, source_atom)
-    
+
     if user_id do
       # Only save for authenticated users
       case TypingApp.Accounts.update_user_game_settings(current_user, %{selected_source: Atom.to_string(source_atom)}) do
@@ -128,7 +134,7 @@ defmodule TypingAppWeb.TypingLive do
           socket = put_flash(socket, :error, "Could not save text source preference.")
       end
     end
-    
+
     {:noreply, socket}
   end
 
@@ -137,7 +143,7 @@ defmodule TypingAppWeb.TypingLive do
     if socket.assigns.game_state == :level_complete do
       new_level = socket.assigns.current_level + 1
       {_, user_id} = get_current_user(socket)
-      
+
       # For registered users, update progress in database
       if user_id do
         {:ok, _} =
@@ -146,7 +152,7 @@ defmodule TypingAppWeb.TypingLive do
             total_score: socket.assigns.progress.total_score + socket.assigns.score
           })
       end
-      
+
       # For both guest and registered users, update the socket assigns
       socket =
         socket
@@ -253,7 +259,7 @@ defmodule TypingAppWeb.TypingLive do
 
     # Save game session (only for authenticated users)
     {_current_user, user_id} = get_current_user(socket)
-    
+
     # Only save sessions for authenticated users
     if user_id do
       Games.create_game_session(%{
@@ -268,7 +274,7 @@ defmodule TypingAppWeb.TypingLive do
 
     # Increment the text completion counter
     texts_completed = socket.assigns.texts_completed + 1
-    
+
     # Get required number of texts per level - higher levels require more texts
     texts_required = cond do
       socket.assigns.current_level <= 5 -> 2
@@ -276,7 +282,7 @@ defmodule TypingAppWeb.TypingLive do
       socket.assigns.current_level <= 15 -> 4
       true -> 5
     end
-    
+
     # Check if player has completed enough texts to advance a level
     if texts_completed >= texts_required do
       # Level complete!
@@ -327,7 +333,7 @@ defmodule TypingAppWeb.TypingLive do
   defp handle_mistake(socket) do
     # Get current user (either authenticated or guest)
     {current_user, _user_id} = get_current_user(socket)
-    
+
     # Check if live_check is enabled for the current user
     should_decrement_lives = current_user.live_check != false
 
@@ -412,7 +418,7 @@ defmodule TypingAppWeb.TypingLive do
   def char_class(index, current_index, typed_text, original_text) do
     GameHelpers.char_class(index, current_index, typed_text, original_text)
   end
-  
+
   # Helper to get the user's preferred text source
   defp get_user_text_source_preference(user) do
     if user.selected_source do
@@ -421,6 +427,9 @@ defmodule TypingAppWeb.TypingLive do
         "default" -> :default
         "zenquotes" -> :zenquotes
         "dummyjson" -> :dummyjson
+        "advice" -> :advice
+        "bored" -> :bored
+        "programming" -> :programming
         _ -> :zenquotes # Default fallback
       end
     else
