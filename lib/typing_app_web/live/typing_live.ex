@@ -5,7 +5,7 @@ defmodule TypingAppWeb.TypingLive do
   alias TypingApp.Accounts
   alias TypingApp.Games.GameHelpers
 
-  def mount(_params, session, socket) do
+  def mount(_params, _session, socket) do
     # Handle both authenticated users and guests
     {current_user, user_id} = get_current_user(socket)
     
@@ -43,7 +43,10 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:last_sound_event, nil)
       # For text sources
       |> assign(:text_sources, text_sources)
-      |> assign(:selected_source, :zenquotes)
+      |> assign(:selected_source, get_user_text_source_preference(current_user))
+      # Track completed texts for level progression
+      |> assign(:texts_completed, 0)
+      |> assign(:texts_required_for_level, 3)
 
     {:ok, socket}
   end
@@ -107,33 +110,59 @@ defmodule TypingAppWeb.TypingLive do
       "dummyjson" -> :dummyjson
       _ -> :default
     end
-    {:noreply, assign(socket, :selected_source, source_atom)}
+    
+    # Save preference to database for registered users
+    {current_user, user_id} = get_current_user(socket)
+    
+    # Prepare updated socket with selected source
+    socket = assign(socket, :selected_source, source_atom)
+    
+    if user_id do
+      # Only save for authenticated users
+      case TypingApp.Accounts.update_user_game_settings(current_user, %{selected_source: Atom.to_string(source_atom)}) do
+        {:ok, _updated_user} ->
+          # Successfully saved preference
+          socket = put_flash(socket, :info, "Text source preference saved.")
+        {:error, _changeset} ->
+          # Failed to save preference but still update the current session
+          socket = put_flash(socket, :error, "Could not save text source preference.")
+      end
+    end
+    
+    {:noreply, socket}
   end
 
   def handle_event("next_level", _params, socket) do
-    new_level = socket.assigns.current_level + 1
-    {_, user_id} = get_current_user(socket)
-    
-    # For registered users, update progress in database
-    if user_id do
-      {:ok, _} =
-        Games.update_user_progress(socket.assigns.progress, %{
-          current_level: new_level,
-          total_score: socket.assigns.progress.total_score + socket.assigns.score
-        })
-    end
-    
-    # For both guest and registered users, update the socket assigns
-    socket =
-      socket
-      |> assign(:current_level, new_level)
-      |> assign(:game_state, :waiting)
-      |> assign(:lives, 3)
-      |> assign(:score, 0)
-      |> assign(:last_sound_event, "levelup")
-      |> reset_timer()
+    # Only allow proceeding to next level if current level is complete
+    if socket.assigns.game_state == :level_complete do
+      new_level = socket.assigns.current_level + 1
+      {_, user_id} = get_current_user(socket)
+      
+      # For registered users, update progress in database
+      if user_id do
+        {:ok, _} =
+          Games.update_user_progress(socket.assigns.progress, %{
+            current_level: new_level,
+            total_score: socket.assigns.progress.total_score + socket.assigns.score
+          })
+      end
+      
+      # For both guest and registered users, update the socket assigns
+      socket =
+        socket
+        |> assign(:current_level, new_level)
+        |> assign(:game_state, :waiting)
+        |> assign(:lives, 3)
+        |> assign(:score, 0)
+        |> assign(:texts_completed, 0)
+        |> assign(:last_sound_event, "levelup")
+        |> reset_timer()
 
-    {:noreply, socket}
+      {:noreply, socket}
+    else
+      # If level not complete, don't allow progression
+      {:noreply, socket}
+    end
   end
 
   def handle_event("reset_game", _params, socket) do
@@ -144,6 +173,7 @@ defmodule TypingAppWeb.TypingLive do
       |> assign(:score, 0)
       |> assign(:lives, 3)
       |> assign(:typed_text, "")
+      |> assign(:texts_completed, 0)
       |> reset_timer()
 
     {:noreply, socket}
@@ -153,7 +183,17 @@ defmodule TypingAppWeb.TypingLive do
     time_left = socket.assigns.time_left - 1
 
     if time_left <= 0 do
-      socket = complete_level(socket)
+      # Check if any progress has been made (require at least some typing)
+      socket = if socket.assigns.current_index > 0 do
+        # Complete level only if player has typed something
+        complete_level(socket)
+      else
+        # End game if time ran out without typing
+        socket
+        |> assign(:game_state, :game_over)
+        |> assign(:last_sound_event, "incorrect")
+        |> reset_timer()
+      end
       {:noreply, socket}
     else
       timer_ref = schedule_timer()
@@ -226,11 +266,23 @@ defmodule TypingAppWeb.TypingLive do
       })
     end
 
-    # Check if level should be completed (after 3 successful texts for demo)
-    if new_score >= socket.assigns.current_level * 300 do
-      complete_level(socket |> assign(:score, new_score))
+    # Increment the text completion counter
+    texts_completed = socket.assigns.texts_completed + 1
+    
+    # Get required number of texts per level - higher levels require more texts
+    texts_required = cond do
+      socket.assigns.current_level <= 5 -> 2
+      socket.assigns.current_level <= 10 -> 3
+      socket.assigns.current_level <= 15 -> 4
+      true -> 5
+    end
+    
+    # Check if player has completed enough texts to advance a level
+    if texts_completed >= texts_required do
+      # Level complete!
+      complete_level(socket |> assign(:score, new_score) |> assign(:texts_completed, 0))
     else
-      # Generate new text and continue
+      # Not enough texts completed yet, generate new text and continue
       new_text = Games.get_typing_text(
         socket.assigns.current_level,
         socket.assigns.selected_source
@@ -238,6 +290,7 @@ defmodule TypingAppWeb.TypingLive do
 
       socket
       |> assign(:score, new_score)
+      |> assign(:texts_completed, texts_completed)
       |> assign(:current_text, new_text)
       |> assign(:typed_text, "")
       |> assign(:current_index, 0)
@@ -247,10 +300,28 @@ defmodule TypingAppWeb.TypingLive do
   end
 
   defp complete_level(socket) do
-    socket
-    |> assign(:game_state, :level_complete)
-    |> assign(:last_sound_event, "levelup")
-    |> reset_timer()
+    # Calculate typing progress percentage
+    current_text = socket.assigns.current_text
+    progress_percentage = if String.length(current_text) > 0 do
+      socket.assigns.current_index / String.length(current_text) * 100
+    else
+      0
+    end
+
+    # Require at least 30% completion of the text to pass a level
+    # This prevents getting credit for minimal typing
+    if progress_percentage >= 30 do
+      socket
+      |> assign(:game_state, :level_complete)
+      |> assign(:last_sound_event, "levelup")
+      |> reset_timer()
+    else
+      # Not enough typing progress to complete level
+      socket
+      |> assign(:game_state, :game_over)
+      |> assign(:last_sound_event, "incorrect")
+      |> reset_timer()
+    end
   end
 
   defp handle_mistake(socket) do
@@ -340,6 +411,22 @@ defmodule TypingAppWeb.TypingLive do
   # Helper for rendering character states - delegated to GameHelpers
   def char_class(index, current_index, typed_text, original_text) do
     GameHelpers.char_class(index, current_index, typed_text, original_text)
+  end
+  
+  # Helper to get the user's preferred text source
+  defp get_user_text_source_preference(user) do
+    if user.selected_source do
+      # Convert string from database to atom
+      case user.selected_source do
+        "default" -> :default
+        "zenquotes" -> :zenquotes
+        "dummyjson" -> :dummyjson
+        _ -> :zenquotes # Default fallback
+      end
+    else
+      # Default if no preference is set
+      :zenquotes
+    end
   end
 
   # View helpers delegated to GameHelpers

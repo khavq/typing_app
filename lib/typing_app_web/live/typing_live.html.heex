@@ -125,6 +125,23 @@
       </div>
     </div>
 
+    <%= if @game_state == :playing do %>
+      <% 
+        texts_required = cond do
+          @current_level <= 5 -> 2
+          @current_level <= 10 -> 3
+          @current_level <= 15 -> 4
+          true -> 5
+        end 
+      %>
+      
+      <div class="progress-info" style="margin-top: 10px; text-align: center; color: #4a5568; background-color: #e2e8f0; padding: 8px; border-radius: 10px;">
+        <div class="progress-label">
+          <strong>Level Progress:</strong> <%= @texts_completed %> of <%= texts_required %> texts completed
+        </div>
+      </div>
+    <% end %>
+
     <%= if @game_state == :level_complete do %>
       <div class="game-complete">
         <h2>🎉 Level <%= @current_level %> Complete! 🎉</h2>
@@ -150,11 +167,13 @@
         <% end %>
 
         <div class="controls" style="margin-top: 20px;">
-          <%= if @current_level < 5 do %>
-            <button class="btn btn-primary" phx-click="next_level">⬆️ Next Level</button>
-          <% else %>
-            <div>🏆 Congratulations! You've mastered all levels! 🏆</div>
-            <button class="btn btn-primary" phx-click="reset_game" autofocus phx-hook="AutoFocusButton" id="try-again-button" data-key-action="reset_game">🔄 Play Again</button>
+          <%= if @game_state == :level_complete do %>
+            <%= if @current_level < 20 do %>
+              <button class="btn btn-primary" phx-click="next_level" autofocus phx-hook="AutoFocusButton" id="next-level-button" data-key-action="next_level">⬆️ Next Level</button>
+            <% else %>
+              <div>🏆 Congratulations! You've mastered all levels! 🏆</div>
+              <button class="btn btn-primary" phx-click="reset_game" autofocus phx-hook="AutoFocusButton" id="try-again-button" data-key-action="reset_game">🔄 Play Again</button>
+            <% end %>
           <% end %>
         </div>
       </div>

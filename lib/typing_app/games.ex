@@ -8,18 +8,40 @@ defmodule TypingApp.Games do
   require Logger
 
   @typing_texts %{
+    # Level 1-5: Basic progression (same as original)
     1 => ["cat", "dog", "sun", "fun", "run", "hat", "bat", "rat"],
     2 => ["apple", "happy", "jumps", "quick", "brown", "water", "tiger", "smile"],
     3 => ["elephant", "rainbow", "butterfly", "treasure", "adventure", "keyboard"],
     4 => ["The quick brown fox jumps", "Kids love to play games", "Practice makes perfect"],
-    5 => ["The quick brown fox jumps over the lazy dog", "Learning to type is fun and rewarding"]
+    5 => ["The quick brown fox jumps over the lazy dog", "Learning to type is fun and rewarding"],
+    
+    # Level 6-10: Intermediate typing challenges
+    6 => ["Programming is a skill best learned by practice", "Typing fast requires regular practice and patience"],
+    7 => ["The five boxing wizards jump quickly over the lazy dog pack", "How vexingly quick daft zebras jump!"],
+    8 => ["A journey of a thousand miles begins with a single step", "All that glitters is not gold; all who wander are not lost"],
+    9 => ["To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment"],
+    10 => ["In three words I can sum up everything I've learned about life: it goes on", "The only way to do great work is to love what you do"],
+    
+    # Level 11-15: Advanced typing with punctuation and numbers
+    11 => ["In 2023, over 85% of jobs required computer skills.", "The meeting is scheduled for July 14th, 2025 at 10:30 AM."],
+    12 => ["He said, \"You must type carefully; accuracy is more important than speed!\" I nodded in agreement."],
+    13 => ["When asked about the project timeline, she replied: \"We expect completion by Q3, assuming all goes well.\""],
+    14 => ["Email: support@example.com | Phone: (555) 123-4567 | Address: 123 Main St., Suite 456, Springfield, IL 62701"],
+    15 => ["The package includes: 3 widgets ($19.99 each), 2 gadgets ($24.50 each), and 1 premium tool set ($149.95)."],
+    
+    # Level 16-20: Expert challenges with mixed content and programming concepts
+    16 => ["function calculateTotal(price, quantity) { return price * quantity * (1 + TAX_RATE); } // JavaScript function"],
+    17 => ["def fibonacci(n):\n  if n <= 1:\n    return n\n  else:\n    return fibonacci(n-1) + fibonacci(n-2)  # Python recursive function"],
+    18 => ["SELECT users.name, COUNT(orders.id) AS order_count FROM users JOIN orders ON users.id = orders.user_id GROUP BY users.id;"],
+    19 => ["<div class=\"container\">\n  <h1>Welcome to our site!</h1>\n  <p>Learn to type <strong>HTML</strong> and <em>CSS</em> code quickly.</p>\n</div>"],
+    20 => ["#!/bin/bash\nfor file in $(ls *.txt); do\n  echo \"Processing $file...\"\n  grep -l \"ERROR\" $file >> error_logs.txt\ndone"]
   }
 
   # Define function head with default parameter
   def get_typing_text(level, source \\ :default)
 
   # Implementation for valid levels
-  def get_typing_text(level, source) when level in 1..5 do
+  def get_typing_text(level, source) when level in 1..20 do
     result = case source do
       :default -> 
         {:ok, get_default_text(level)}
